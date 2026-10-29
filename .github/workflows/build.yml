@@ -1,0 +1,52 @@
+name: Build APK
+
+# Builds the Fire OS 5 (API 22) APK on GitHub's runners so no local Android SDK/NDK/JDK is
+# needed. Run it from the Actions tab ("Run workflow"); the APK is attached to the run as an
+# artifact. Output is debug-signed — see docs/STATUS.md for the durable-signing option.
+
+on:
+  workflow_dispatch:
+    inputs:
+      ts_ref:
+        description: "Upstream tailscale-android ref (must have a patches/<version>/ directory)"
+        default: "1.104.4-t938213198-gb9d487fe6"
+        required: true
+      gomobile_target:
+        description: "android/arm (Fire TV Stick 2nd gen, armeabi-v7a) or android/arm64 etc."
+        default: "android/arm"
+        required: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: stable
+
+      - name: Build
+        env:
+          TS_REF: ${{ inputs.ts_ref }}
+          GOMOBILE_TARGET: ${{ inputs.gomobile_target }}
+          MIN_SDK: "22"
+          GRADLE_HEAP: 5g
+          # Preinstalled on ubuntu runners; build.sh installs the pinned NDK and the
+          # platform/build-tools this ref asks for into it.
+          ANDROID_SDK_ROOT: /usr/local/lib/android/sdk
+        run: ./scripts/build.sh
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: tailscale-fireos5-apk
+          path: |
+            dist/*.apk
+            dist/*.sha256
+          if-no-files-found: error
