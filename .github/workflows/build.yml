@@ -41,7 +41,7 @@ jobs:
           # Preinstalled on ubuntu runners; build.sh installs the pinned NDK and the
           # platform/build-tools this ref asks for into it.
           ANDROID_SDK_ROOT: /usr/local/lib/android/sdk
-        run: bash /scripts/build.sh
+        run: bash scripts/build.sh
 
       - uses: actions/upload-artifact@v4
         with:
