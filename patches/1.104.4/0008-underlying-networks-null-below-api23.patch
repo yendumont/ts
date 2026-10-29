@@ -1,0 +1,33 @@
+diff --git a/android/src/main/java/com/tailscale/ipn/IPNService.kt b/android/src/main/java/com/tailscale/ipn/IPNService.kt
+index adb7b1f..403a69e 100644
+--- a/android/src/main/java/com/tailscale/ipn/IPNService.kt
++++ b/android/src/main/java/com/tailscale/ipn/IPNService.kt
+@@ -135,7 +141,10 @@ open class IPNService : VpnService(), libtailscale.IPNService {
+   }
+ 
+   private fun updateUnderlyingNetwork(network: Network?) {
+-    val networks = network?.let { arrayOf(it) } ?: emptyArray()
++    // See newBuilder(): below API 23 "no network" must be null (system default), not empty.
++    val networks: Array<Network>? =
++        network?.let { arrayOf(it) }
++            ?: if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M) null else emptyArray()
+     if (!setUnderlyingNetworks(networks)) {
+       TSLog.w(TAG, "Failed to set underlying network: $network")
+     } else {
+@@ -199,7 +208,15 @@ open class IPNService : VpnService(), libtailscale.IPNService {
+     }
+ 
+     val underlyingNetwork = NetworkChangeCallback.cachedDefaultNetwork
+-    b.setUnderlyingNetworks(underlyingNetwork?.let { arrayOf(it) } ?: emptyArray())
++    if (underlyingNetwork == null && Build.VERSION.SDK_INT < Build.VERSION_CODES.M) {
++      // On API < 23 the NetworkRequest callback never delivers, so there is never a
++      // cached network. An empty array means "this VPN has no underlying network",
++      // which is wrong here; null means "use the system default" and is what the
++      // 1.98.8 build used and was verified with.
++      b.setUnderlyingNetworks(null)
++    } else {
++      b.setUnderlyingNetworks(underlyingNetwork?.let { arrayOf(it) } ?: emptyArray())
++    }
+ 
+     val mdmAllowed =
+         MDMSettings.includedPackages.flow.value.value?.split(",")?.map { it.trim() } ?: emptyList()
