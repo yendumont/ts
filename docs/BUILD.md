@@ -78,7 +78,7 @@ Override anything via environment variables:
 
 | Variable | Default | Purpose |
 |---|---|---|
-| `TS_REF` | `1.104.4-t938213198-gb9d487fe6` | upstream tag or commit to build |
+| `TS_REF` | `1.104.5-t788384763-gd8673104f` | upstream tag or commit to build |
 | `MIN_SDK` | `22` | API floor; patched into Gradle **and** gomobile |
 | `GOMOBILE_TARGET` | `android/arm` | `android/arm64` for arm64-only; bare `android` for all ABIs (slower, larger) |
 | `ANDROID_SDK_ROOT` | `~/Library/Android/sdk` (mac), `~/Android/Sdk` (linux) | SDK location |
@@ -93,7 +93,7 @@ Override anything via environment variables:
 | `3926cf4b56` | — | renders, but screens are stubs. Historical interest only |
 | `1.64.0-…` | 1 | complete UI, 2024-era Go core |
 | `1.98.8-…` | 7 | last **device-verified** build; patch set in `patches/1.98.8/` |
-| **`1.104.4-t938213198-gb9d487fe6`** | 8 | **default.** Current stable; patches in `patches/1.104.4/`, **not yet device-tested** — see [PORTING-1.104.4.md](PORTING-1.104.4.md). Needs compileSdk 36 / build-tools 36 (installed automatically) |
+| **`1.104.5-t788384763-gd8673104f`** | 9 | **default.** Current stable; patches in `patches/1.104.5/`, **not yet device-tested** — see [PORTING-1.104.4.md](PORTING-1.104.4.md). Needs compileSdk 36 / build-tools 36 (installed automatically) |
 
 Patches are per-ref (`patches/<ref>/`). Building a ref with no patch directory will hit the
 API-22 bugs listed in STATUS.md — expect `NoSuchMethodError` / `NoClassDefFoundError`.

@@ -1,0 +1,50 @@
+diff --git a/android/src/main/java/com/tailscale/ipn/IPNReceiver.java b/android/src/main/java/com/tailscale/ipn/IPNReceiver.java
+index 4d60c5c..c34ceb9 100644
+--- a/android/src/main/java/com/tailscale/ipn/IPNReceiver.java
++++ b/android/src/main/java/com/tailscale/ipn/IPNReceiver.java
+@@ -40,7 +40,10 @@ public class IPNReceiver extends BroadcastReceiver {
+         if (Objects.equals(action, INTENT_CONNECT_VPN)) {
+             OneTimeWorkRequest req =
+                     new OneTimeWorkRequest.Builder(StartVPNWorker.class)
+-                            .setExpedited(OutOfQuotaPolicy.RUN_AS_NON_EXPEDITED_WORK_REQUEST)
++                            // setExpedited removed (API 22 build): below API 31 WorkManager runs
++                            // expedited work as a foreground service. Upstream now supplies
++                            // getForegroundInfo(), but that path is unverified on Fire OS 5;
++                            // the job is short, so run it as ordinary work.
+                             .addTag(WORK_CONNECT)
+                             .build();
+ 
+@@ -49,7 +52,10 @@ public class IPNReceiver extends BroadcastReceiver {
+         } else if (Objects.equals(action, INTENT_DISCONNECT_VPN)) {
+             OneTimeWorkRequest req =
+                     new OneTimeWorkRequest.Builder(StopVPNWorker.class)
+-                            .setExpedited(OutOfQuotaPolicy.RUN_AS_NON_EXPEDITED_WORK_REQUEST)
++                            // setExpedited removed (API 22 build): below API 31 WorkManager runs
++                            // expedited work as a foreground service. Upstream now supplies
++                            // getForegroundInfo(), but that path is unverified on Fire OS 5;
++                            // the job is short, so run it as ordinary work.
+                             .addTag(WORK_DISCONNECT)
+                             .build();
+ 
+@@ -68,7 +74,10 @@ public class IPNReceiver extends BroadcastReceiver {
+             OneTimeWorkRequest req =
+                     new OneTimeWorkRequest.Builder(UseExitNodeWorker.class)
+                             .setInputData(input)
+-                            .setExpedited(OutOfQuotaPolicy.RUN_AS_NON_EXPEDITED_WORK_REQUEST)
++                            // setExpedited removed (API 22 build): below API 31 WorkManager runs
++                            // expedited work as a foreground service. Upstream now supplies
++                            // getForegroundInfo(), but that path is unverified on Fire OS 5;
++                            // the job is short, so run it as ordinary work.
+                             .addTag(WORK_USE_EXIT_NODE)
+                             .build();
+ 
+@@ -88,7 +97,8 @@ public class IPNReceiver extends BroadcastReceiver {
+             OneTimeWorkRequest req =
+                     new OneTimeWorkRequest.Builder(IntegrationLoginWorker.class)
+                             .setInputData(input)
+-                            .setExpedited(OutOfQuotaPolicy.RUN_AS_NON_EXPEDITED_WORK_REQUEST)
++                            // setExpedited removed (API 22 build): run as ordinary work, the
++                            // same path verified for the other workers above.
+                             .addTag(IntegrationLoginWorker.WORK_NAME)
+                             .build();
+ 

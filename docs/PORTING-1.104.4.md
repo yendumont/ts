@@ -34,6 +34,7 @@ use even minor numbers, so 1.104.x is the current stable line; 1.105.x is unstab
 | 0006 | drop `setExpedited` (4 sites) | 31 |
 | 0007 | `coreLibraryDesugaring` for `java.time` (Kotlin DSL) | 26 |
 | 0008 | **new** — underlying networks `null`, not empty, below API 23 | 23 |
+| 0009 | **new, optional** — start the VPN after boot (`BootReceiver`); there is no always-on VPN below API 24. Only starts if logged in and VPN permission already granted. Delete this patch to disable | 24 |
 
 *Verified:* all eight apply in order to pristine `1.104.4` and reproduce the intended tree
 byte-for-byte; `build.sh` passes `bash -n`; its minSdk override was exercised against both the
@@ -54,7 +55,12 @@ new `.kts` and the old Groovy file.
 5. **Notifications.** New key-expiry and Taildrop notifications check
    `POST_NOTIFICATIONS`, which API 22 does not define; they may be silently skipped. This is
    the same pattern the health notifier already used, not a crash.
-6. **Reinstalling.** A new APK signed with a different key needs `adb uninstall
+6. **Boot auto-start (0009).** Untested: reboot the stick and check `adb logcat -d | grep
+   BootReceiver` (expect `boot: starting VPN`) and `adb shell ip addr | grep tun0`. Fire OS may
+   delay or withhold `BOOT_COMPLETED`; the app must have been opened once since install.
+7. **Known upstream issue, not touched:** `StartVPNWorker`'s "not ready" path builds a
+   `Notification.Builder(context, channelId)` (API 26) and would crash on Fire OS 5 if reached.
+8. **Reinstalling.** A new APK signed with a different key needs `adb uninstall
    com.tailscale.ipn` first (login is lost); sign with the durable key (STATUS.md) to avoid
    this on future upgrades.
 
@@ -64,3 +70,11 @@ new `.kts` and the old Groovy file.
 release, copy the newest directory, run `git apply --check` on each patch against the new
 ref, and re-audit anything upstream added since (the quickest signal is
 `diff -ru` of `android/src/main` between the two tags, grepping for API 23+ calls).
+
+## Update to 1.104.5 (2026-11-04)
+
+Upstream `1.104.5-t788384763-gd8673104f` changed only `go.mod` / `go.sum` (`tailscale.com`
+v1.104.4 → v1.104.5). Nothing under `android/` changed, so `patches/1.104.5/` is a verbatim copy
+of the 1.104.4 series. *Verified:* all nine apply in order to pristine 1.104.5 and produce an
+`android/` tree identical to the 1.104.4 tree audited above. Compile and on-device checks listed
+above still apply. `patches/1.104.4/` is kept as a fallback.

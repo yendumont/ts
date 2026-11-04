@@ -1,0 +1,74 @@
+diff --git a/android/src/main/java/com/tailscale/ipn/ui/localapi/Client.kt b/android/src/main/java/com/tailscale/ipn/ui/localapi/Client.kt
+index 146a1a0..192c975 100644
+--- a/android/src/main/java/com/tailscale/ipn/ui/localapi/Client.kt
++++ b/android/src/main/java/com/tailscale/ipn/ui/localapi/Client.kt
+@@ -23,9 +23,9 @@ import kotlinx.coroutines.CoroutineScope
+ import kotlinx.coroutines.Dispatchers
+ import kotlinx.coroutines.launch
+ import kotlinx.serialization.ExperimentalSerializationApi
++import kotlinx.serialization.decodeFromString
+ import kotlinx.serialization.encodeToString
+ import kotlinx.serialization.json.Json
+-import kotlinx.serialization.json.decodeFromStream
+ import kotlinx.serialization.serializer
+ import libtailscale.FilePart
+ 
+@@ -360,17 +360,19 @@ class Request<T>(
+               typeOf<Unit>() -> Result.success(Unit as T)
+               else ->
+                   try {
++                    // decodeFromString, not decodeFromStream: the stream path hits a
++                    // CharsetDecoderICU bug on API <= 23 for payloads over 16KB (see Notifier.kt).
+                     Result.success(
+-                        jsonDecoder.decodeFromStream(
++                        jsonDecoder.decodeFromString(
+                             Json.serializersModule.serializer(responseType),
+-                            respData.inputStream(),
++                            respData.decodeToString(),
+                         ) as T
+                     )
+                   } catch (t: Throwable) {
+                     // If we couldn't parse the response body, assume it's an error response
+                     try {
+                       val error =
+-                          jsonDecoder.decodeFromStream<Errors.GenericError>(respData.inputStream())
++                          jsonDecoder.decodeFromString<Errors.GenericError>(respData.decodeToString())
+                       throw Exception(error.error)
+                     } catch (t: Throwable) {
+                       Result.failure(t)
+diff --git a/android/src/main/java/com/tailscale/ipn/ui/notifier/Notifier.kt b/android/src/main/java/com/tailscale/ipn/ui/notifier/Notifier.kt
+index 8844ae0..4460787 100644
+--- a/android/src/main/java/com/tailscale/ipn/ui/notifier/Notifier.kt
++++ b/android/src/main/java/com/tailscale/ipn/ui/notifier/Notifier.kt
+@@ -24,8 +24,8 @@ import kotlinx.coroutines.flow.StateFlow
+ import kotlinx.coroutines.flow.update
+ import kotlinx.coroutines.launch
+ import kotlinx.serialization.ExperimentalSerializationApi
++import kotlinx.serialization.decodeFromString
+ import kotlinx.serialization.json.Json
+-import kotlinx.serialization.json.decodeFromStream
+ 
+ // When set to true, the Notifier will inject fake health warnings for testing purposes
+ val INJECT_FAKE_HEALTH_WARNINGS = false
+@@ -105,7 +105,20 @@ object Notifier {
+       manager =
+           app.watchNotifications(mask.toLong()) { notification ->
+             runCatching {
+-              val notify = decoder.decodeFromStream<Notify>(notification.inputStream())
++              // Decode from a String, not decodeFromStream.
++              //
++              // decodeFromStream routes through Android's CharsetDecoderICU, which is
++              // broken on API <= 23: CharsetReader.doRead() passes it a CharBuffer from
++              // CharBuffer.wrap(..).slice(), whose arrayOffset() is non-zero, and
++              // setPosition() then computes a negative position, throwing
++              //   IllegalArgumentException: Bad position (limit 16261): -118
++              // Google fixed this at API 24. See kotlinx.serialization#2457.
++              //
++              // The slice only appears on the loop's second pass, so the payload must
++              // exceed the 16KB internal buffer; size alone is the trigger. Large netmap
++              // and peer-change notifications hit it, and the exception propagated out of
++              // the Go callback so the whole notification was dropped silently.
++              val notify = decoder.decodeFromString<Notify>(String(notification, Charsets.UTF_8))
+               notify.State?.let { state.set(Ipn.State.fromInt(it)) }
+               if (BuildConfig.DEBUG) {
+                 notify.InitialStatus?.let {

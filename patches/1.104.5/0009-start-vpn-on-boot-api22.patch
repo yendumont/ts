@@ -1,0 +1,86 @@
+diff --git a/android/src/main/AndroidManifest.xml b/android/src/main/AndroidManifest.xml
+index 97ecc92..0e661d5 100644
+--- a/android/src/main/AndroidManifest.xml
++++ b/android/src/main/AndroidManifest.xml
+@@ -12,6 +12,7 @@
+     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SYSTEM_EXEMPTED" />
++    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+     <uses-permission
+         android:name="android.permission.QUERY_ALL_PACKAGES"
+         tools:ignore="QueryAllPackagesPermission" />
+@@ -112,6 +113,17 @@
+             android:name=".InlineShareActionReceiver"
+             android:exported="false" />
+ 
++        <!-- Fire OS 5 / API 22 build: start the VPN after boot (no always-on VPN below API 24). -->
++        <receiver
++            android:name=".BootReceiver"
++            android:exported="false">
++            <intent-filter>
++                <action android:name="android.intent.action.BOOT_COMPLETED" />
++                <action android:name="android.intent.action.QUICKBOOT_POWERON" />
++                <action android:name="com.htc.intent.action.QUICKBOOT_POWERON" />
++            </intent-filter>
++        </receiver>
++
+         <receiver
+             android:name=".MDMSettingsChangedReceiver"
+             android:exported="false">
+diff --git a/android/src/main/java/com/tailscale/ipn/BootReceiver.kt b/android/src/main/java/com/tailscale/ipn/BootReceiver.kt
+new file mode 100644
+index 0000000..2893895
+--- /dev/null
++++ b/android/src/main/java/com/tailscale/ipn/BootReceiver.kt
+@@ -0,0 +1,50 @@
++// Copyright (c) Tailscale Inc & AUTHORS
++// SPDX-License-Identifier: BSD-3-Clause
++
++package com.tailscale.ipn
++
++import android.content.BroadcastReceiver
++import android.content.Context
++import android.content.Intent
++import android.net.VpnService
++import com.tailscale.ipn.util.TSLog
++
++/**
++ * Starts the VPN after the device boots.
++ *
++ * Upstream relies on Android's always-on VPN (API 24+), which does not exist on Fire OS 5 / API
++ * 22, so nothing brings the tunnel up after a reboot. This mirrors the guard StartVPNWorker uses:
++ * only start when the user is logged in and authorized, and the VPN permission is already granted.
++ * If either is missing it does nothing rather than showing UI at boot.
++ */
++class BootReceiver : BroadcastReceiver() {
++  override fun onReceive(context: Context, intent: Intent?) {
++    when (intent?.action) {
++      Intent.ACTION_BOOT_COMPLETED,
++      "android.intent.action.QUICKBOOT_POWERON",
++      "com.htc.intent.action.QUICKBOOT_POWERON" -> Unit
++      else -> return
++    }
++
++    val app = UninitializedApp.get()
++    if (!app.isAbleToStartVPN()) {
++      TSLog.d(TAG, "boot: not logged in / not able to start VPN; leaving it off")
++      return
++    }
++    if (VpnService.prepare(app) != null) {
++      TSLog.d(TAG, "boot: VPN permission not granted; leaving it off")
++      return
++    }
++
++    try {
++      TSLog.d(TAG, "boot: starting VPN")
++      app.startVPN()
++    } catch (e: Exception) {
++      TSLog.e(TAG, "boot: startVPN failed: $e")
++    }
++  }
++
++  companion object {
++    private const val TAG = "BootReceiver"
++  }
++}
