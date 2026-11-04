@@ -4,8 +4,15 @@ Unofficial, reproducible build of the **Tailscale Android client** for **Fire OS
 Android 5.1 (API 22)** devices with **OpenGL ES 2.0** GPUs — hardware the official app
 cannot support.
 
-**Tailscale 1.104.4** is the last build verified on a device: patched to run at API 22,
+**Tailscale 1.98.8** is the last build verified on a device: patched to run at API 22,
 **routing traffic through an exit node**.
+
+> [!NOTE]
+> **1.104.5 (current stable) is ported but not yet device-tested.** The patch series in
+> `patches/1.104.5/` applies and `build.sh` defaults to it, but it has not been built or run on
+> Fire OS 5. See [docs/PORTING-1.104.4.md](docs/PORTING-1.104.4.md). To stay on the verified
+> build: `TS_REF=1.98.8-t1241b225b-gbcbaf1889 ./scripts/build.sh`. To build without a local
+> toolchain, run the **Build APK** workflow from the Actions tab.
 
 > [!IMPORTANT]
 > **Unofficial community build.** Not affiliated with, endorsed by, or supported by
@@ -22,7 +29,7 @@ Verified on a Fire TV Stick 2nd gen (`AFTT`), Fire OS 5.2.9.5:
 | Online to control plane, health clear | ✅ |
 | Peer list | ✅ |
 | **Exit-node routing** | ✅ 1 MB download → **1,113,884 bytes over `tun0`** |
-| Auto-start after reboot | ✅ kinda works |
+| Auto-start after reboot | ❌ open the app once; see [STATUS.md](docs/STATUS.md) |
 
 ## Quick start
 
