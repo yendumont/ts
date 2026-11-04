@@ -28,3 +28,8 @@ __pycache__/
 *.pyc
 .venv/
 .DS_Store
+
+# signing keys must never be committed
+*.jks
+*.keystore
+keystore-*.txt
