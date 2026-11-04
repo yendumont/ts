@@ -1,15 +1,11 @@
 name: Build APK
 
-# Builds the Fire OS 5 (API 22) APK on GitHub's runners so no local Android SDK/NDK/JDK is
-# needed. Run it from the Actions tab ("Run workflow"); the APK is attached to the run as an
-# artifact. Output is debug-signed — see docs/STATUS.md for the durable-signing option.
-
 on:
   workflow_dispatch:
     inputs:
       ts_ref:
         description: "Upstream tailscale-android ref (must have a patches/<version>/ directory)"
-        default: "1.104.4-t938213198-gb9d487fe6"
+        default: "1.104.5-t788384763-gd8673104f"
         required: true
       gomobile_target:
         description: "android/arm (Fire TV Stick 2nd gen, armeabi-v7a) or android/arm64 etc."
@@ -38,10 +34,22 @@ jobs:
           GOMOBILE_TARGET: ${{ inputs.gomobile_target }}
           MIN_SDK: "22"
           GRADLE_HEAP: 5g
-          # Preinstalled on ubuntu runners; build.sh installs the pinned NDK and the
-          # platform/build-tools this ref asks for into it.
           ANDROID_SDK_ROOT: /usr/local/lib/android/sdk
         run: bash scripts/build.sh
+
+      - name: Sign with permanent key
+        env:
+          TS_KEYSTORE_BASE64: ${{ secrets.TS_KEYSTORE_BASE64 }}
+          TS_KEYSTORE_PASSWORD: ${{ secrets.TS_KEYSTORE_PASSWORD }}
+          TS_KEY_ALIAS: ${{ secrets.TS_KEY_ALIAS }}
+          ANDROID_SDK_ROOT: /usr/local/lib/android/sdk
+        run: |
+          if [ -z "$TS_KEYSTORE_BASE64" ] || [ -z "$TS_KEYSTORE_PASSWORD" ]; then
+            echo "::warning::Signing secrets not set; APK is debug-signed and cannot update an existing install."
+            exit 0
+          fi
+          export TS_KEY_ALIAS="${TS_KEY_ALIAS:-firetv}"
+          for apk in dist/*.apk; do bash scripts/sign-apk.sh "$apk"; done
 
       - uses: actions/upload-artifact@v4
         with:
