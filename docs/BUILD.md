@@ -93,7 +93,7 @@ Override anything via environment variables:
 | `3926cf4b56` | — | renders, but screens are stubs. Historical interest only |
 | `1.64.0-…` | 1 | complete UI, 2024-era Go core |
 | `1.98.8-…` | 7 | last **device-verified** build; patch set in `patches/1.98.8/` |
-| **`1.104.5-t788384763-gd8673104f`** | 9 | **default.** Current stable; patches in `patches/1.104.5/`, **not yet device-tested** — see [PORTING-1.104.4.md](PORTING-1.104.4.md). Needs compileSdk 36 / build-tools 36 (installed automatically) |
+| **`1.104.5-t788384763-gd8673104f`** | 9 | **default.** Current stable; patches in `patches/1.104.5/`, device-tested on a Fire TV Stick 2nd gen — see [PORTING-1.104.4.md](PORTING-1.104.4.md). Needs compileSdk 36 / build-tools 36 (installed automatically) |
 
 Patches are per-ref (`patches/<ref>/`). Building a ref with no patch directory will hit the
 API-22 bugs listed in STATUS.md — expect `NoSuchMethodError` / `NoClassDefFoundError`.

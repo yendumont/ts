@@ -1,10 +1,17 @@
-# Porting 1.98.8 → 1.104.4
+# Porting 1.98.8 → 1.104.4 / 1.104.5
 
-Status: **patches ported and verified to apply; APK not yet built or tested on a device.**
-The build needs the Android SDK/NDK and Maven/Gradle downloads, which were unavailable in
-the environment where this port was prepared. Everything below that is marked *verified*
-was checked by script; everything under [Still unverified](#still-unverified) needs a real
-build and a Fire TV Stick.
+Status: **built with GitHub Actions and tested on a Fire TV Stick 2nd gen (Fire OS 5.2.9.5)** at
+1.104.5 (2026-11-04). The patch series is identical for 1.104.4 and 1.104.5, so it applies to both.
+
+Confirmed on the device (reported by the device owner):
+- installs, launches, logs in, tunnel comes up, stays logged in across reboots;
+- **boot auto-start (patch 0009) works** — after a reboot, with no launch-on-boot helper app
+  installed and nothing opened, Tailscale and its `tun` interface come up on their own;
+- **running the stick as an exit node works** — another device's traffic relayed through it
+  (`wlan0` rx/tx rose by ~42 MB / ~44 MB together); throughput is low on 2.4 GHz Wi-Fi, as expected.
+
+Checked by script: all patches apply in order to pristine upstream. Items under
+[Not yet checked](#not-yet-checked) remain open.
 
 Target: `1.104.4-t938213198-gb9d487fe6` (commit `b9d487fe6d72`, 2026-10-27). Stable releases
 use even minor numbers, so 1.104.x is the current stable line; 1.105.x is unstable.
@@ -36,33 +43,36 @@ use even minor numbers, so 1.104.x is the current stable line; 1.105.x is unstab
 | 0008 | **new** — underlying networks `null`, not empty, below API 23 | 23 |
 | 0009 | **new, optional** — start the VPN after boot (`BootReceiver`); there is no always-on VPN below API 24. Only starts if logged in and VPN permission already granted. Delete this patch to disable | 24 |
 
-*Verified:* all eight apply in order to pristine `1.104.4` and reproduce the intended tree
+*Verified:* all nine apply in order to pristine `1.104.4` and reproduce the intended tree
 byte-for-byte; `build.sh` passes `bash -n`; its minSdk override was exercised against both the
 new `.kts` and the old Groovy file.
 
-## Still unverified
+## Not yet checked
 
-1. **A full build.** Run `./scripts/build.sh`, or use the *Build APK* workflow in Actions.
-   `build.sh` hard-fails if `verify-apk.py` finds minSdk above 22 or a missing ABI.
-2. **Kotlin compile of the patched sources** under Kotlin 2.2.10 / AGP 9.4.
-   `desugar_jdk_libs:2.1.5` in 0007 was chosen for AGP 9 compatibility but not resolved here.
-3. **On-device behaviour on Fire OS 5** — specifically: launch and render on GLES 2.0, login,
-   tunnel up, peer list populated, exit-node routing (`tun0` byte counters, see STATUS.md),
-   and no `NoSuchMethodError` / `NoClassDefFoundError` / `VerifyError` in logcat.
-4. **Expedited work.** Upstream now provides `getForegroundInfo()`, so WorkManager's expedited
+Resolved by the device test above: the full build and the Kotlin compile, launch / render on
+GLES 2.0, login, tunnel, and boot auto-start (0009).
+
+Still open:
+
+1. **Using an exit node from the stick.** STATUS.md verified this on 1.98.8. Not re-measured on
+   1.104.x (note the tunnel interface may be `tun1`, not `tun0`, if another VPN app held `tun0`).
+2. **Expedited work.** Upstream now provides `getForegroundInfo()`, so WorkManager's expedited
    path might work on API 22, but 0006 deliberately keeps the already-verified ordinary-work
    path.
-5. **Notifications.** New key-expiry and Taildrop notifications check
+3. **Notifications.** New key-expiry and Taildrop notifications check
    `POST_NOTIFICATIONS`, which API 22 does not define; they may be silently skipped. This is
    the same pattern the health notifier already used, not a crash.
-6. **Boot auto-start (0009).** Untested: reboot the stick and check `adb logcat -d | grep
-   BootReceiver` (expect `boot: starting VPN`) and `adb shell ip addr | grep tun0`. Fire OS may
-   delay or withhold `BOOT_COMPLETED`; the app must have been opened once since install.
-7. **Known upstream issue, not touched:** `StartVPNWorker`'s "not ready" path builds a
+4. **Boot-start timing.** Auto-start works, but the console took a few minutes to show the node
+   connected after a reboot. Not measured; may just be the stick's slow boot.
+5. **Known upstream issue, not touched:** `StartVPNWorker`'s "not ready" path builds a
    `Notification.Builder(context, channelId)` (API 26) and would crash on Fire OS 5 if reached.
-8. **Reinstalling.** A new APK signed with a different key needs `adb uninstall
-   com.tailscale.ipn` first (login is lost); sign with the durable key (STATUS.md) to avoid
-   this on future upgrades.
+6. **Reinstalling.** A build signed with a different key needs `adb uninstall com.tailscale.ipn`
+   first (login is lost). The Build APK workflow signs with a permanent key from repo secrets
+   (see STATUS.md "Signing"), so later builds update in place with `adb install -r`.
+
+Tips learned on device: check the tunnel with `adb shell ls /sys/class/net | findstr tun` rather
+than assuming `tun0`; when the stick *is* the exit node, relayed traffic shows on `wlan0`
+rx/tx, not on the tunnel interface.
 
 ## Rolling forward again
 
